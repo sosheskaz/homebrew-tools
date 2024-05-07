@@ -1,29 +1,67 @@
 #!/bin/sh -e
 
-if ! which brew > /dev/null; then
-	echo "Error: Homebrew not in PATH."
+BREW="${BREW:-brew}"
+DRY_RUN="${DRY_RUN:-}"
+
+if ! which "${BREW}" > /dev/null; then
+	echo "Error: Homebrew binary '${BREW}' not found in PATH."
+	exit 1
+else
+	echo "Using Homebrew from $(which "${BREW}"): $("${BREW}" --version | head -n1)"
+fi
+
+echodo() {
+	echo "+ $@"
+	if [ -z "${DRY_RUN}" ]
+	then
+		"$@"
+	fi
+}
+
+eval "$("${BREW}" shellenv)"
+
+GIT="${GIT:-git}"
+if ! which "${GIT}" > /dev/null; then
+	echo "Error: Git binary '${GIT}' not found in PATH."
+	exit 1
+else
+	echo "Using Git from $(which "${GIT}"): $("${GIT}" --version | head -n1)"
+fi
+
+BREW_DIR="${HOMEBREW_REPOSITORY}"
+TAPS_DIR="${HOMEBREW_REPOSITORY}/Library/Taps"
+
+BEFORE="$(du -sh "${BREW_DIR}" | awk '{print $1}')"
+
+if [[ ! -d "$BREW_DIR" ]]
+then
+	echo "Error: Homebrew directory '$BREW_DIR' not found."
 	exit 1
 fi
 
-BREW_CONFIG=$(brew config)
-BREW_PREFIX=$(echo "$BREW_CONFIG" | grep '^HOMEBREW_PREFIX: ' | cut -d ':' -f 2 | tr -d '[:space:]')
-
-BREW_DIR="$BREW_PREFIX/Homebrew"
-TAPS_DIR="$BREW_DIR/Library/Taps"
-
-cd "$BREW_DIR"
-echo "Cleaning core homebrew installation..."
-git gc --aggressive
-echo
-
-cd "$TAPS_DIR"
-for subdir in */*; do
-	cd $subdir
-	echo "Cleaning tap $subdir..."
-	git gc --aggressive
-	echo
-	cd ../..
-done
+if [[ ! -d "$TAPS_DIR" ]]
+then
+	echo "Error: Homebrew taps directory '$TAPS_DIR' not found."
+	exit 1
+fi
 
 echo "Cleaning up homebrew installs..."
-brew cleanup
+echodo "${BREW}" cleanup --prune=all
+echo
+
+echo "Cleaning core homebrew installation..."
+echodo "${GIT}" -C "${HOMEBREW_REPOSITORY}" gc --aggressive
+echo
+
+while read -r tap
+do
+	echo "Cleaning tap $subdir..."
+	echodo "${GIT}" -C "${tap}" gc --aggressive
+	echo
+	cd ../..
+done <<< "$(find "${TAPS_DIR}" -type d -name .git -exec dirname '{}' \;)"
+
+AFTER="$(du -sh "${BREW_DIR}" | awk '{print $1}')"
+
+echo "Before: $BEFORE"
+echo "After:  $AFTER"
