@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/usr/bin/env bash
+
+set -e
 
 BREW="${BREW:-brew}"
 DRY_RUN="${DRY_RUN:-}"
