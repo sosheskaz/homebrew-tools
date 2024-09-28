@@ -43,8 +43,7 @@ fi
 
 if [[ ! -d "$TAPS_DIR" ]]
 then
-	echo "Error: Homebrew taps directory '$TAPS_DIR' not found."
-	exit 1
+	echo "Warn: Homebrew taps directory '$TAPS_DIR' not found."
 fi
 
 echo "Cleaning up homebrew installs..."
